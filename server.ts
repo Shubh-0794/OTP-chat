@@ -8,34 +8,31 @@ async function createServer() {
   const app = express();
   app.use(express.json());
 
-  // Mock implementation of Netlify functions for local AI Studio preview
-  app.post('/.netlify/functions/send-otp', async (req, res) => {
+  // API Handlers for local AI Studio preview (supports both /api and /.netlify/functions)
+  const handleSendOtp = async (req: express.Request, res: express.Response) => {
     try {
-      const { handler } = await import('./netlify/functions/send-otp.js');
-      const result: any = await handler({
-        httpMethod: 'POST',
-        body: JSON.stringify(req.body)
-      });
-      res.status(result.statusCode).set(result.headers || {}).send(result.body);
+      const { default: handler } = await import('./api/send-otp.js');
+      await handler(req, res);
     } catch (error) {
       console.error(error);
-      res.status(500).json({ error: 'Internal Server Error (Mock Netlify Function)' });
+      res.status(500).json({ error: 'Internal Server Error' });
     }
-  });
+  };
 
-  app.post('/.netlify/functions/verify-otp', async (req, res) => {
+  const handleVerifyOtp = async (req: express.Request, res: express.Response) => {
     try {
-      const { handler } = await import('./netlify/functions/verify-otp.js');
-      const result: any = await handler({
-        httpMethod: 'POST',
-        body: JSON.stringify(req.body)
-      });
-      res.status(result.statusCode).set(result.headers || {}).send(result.body);
+      const { default: handler } = await import('./api/verify-otp.js');
+      await handler(req, res);
     } catch (error) {
       console.error(error);
-      res.status(500).json({ error: 'Internal Server Error (Mock Netlify Function)' });
+      res.status(500).json({ error: 'Internal Server Error' });
     }
-  });
+  };
+
+  app.post('/api/send-otp', handleSendOtp);
+  app.post('/.netlify/functions/send-otp', handleSendOtp);
+  app.post('/api/verify-otp', handleVerifyOtp);
+  app.post('/.netlify/functions/verify-otp', handleVerifyOtp);
 
   const vite = await createViteServer({
     server: { middlewareMode: true },

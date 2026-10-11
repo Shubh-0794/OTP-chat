@@ -27,6 +27,20 @@ export default function App() {
     return () => clearInterval(timer);
   }, [step, resendCooldown]);
 
+  const parseResponse = async (res: Response) => {
+    const text = await res.text();
+    let data: any = {};
+    try {
+      data = JSON.parse(text);
+    } catch {
+      if (!res.ok) {
+        throw new Error(`Server returned error (${res.status}): ${text.slice(0, 150)}`);
+      }
+    }
+    if (!res.ok) throw new Error(data.error || 'Request failed');
+    return data;
+  };
+
   const handleSendOtp = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
@@ -34,15 +48,17 @@ export default function App() {
     setLoading(true);
 
     try {
-      const res = await fetch('/.netlify/functions/send-otp', {
+      const res = await fetch('/api/send-otp', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ phone }),
       });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Failed to send OTP');
+      const data = await parseResponse(res);
       setStep('VERIFY');
       setResendCooldown(30);
+      if (data.message) {
+        setInfoMessage(data.message);
+      }
     } catch (err: any) {
       setError(err.message);
     } finally {
@@ -57,17 +73,16 @@ export default function App() {
     setResending(true);
 
     try {
-      const res = await fetch('/.netlify/functions/send-otp', {
+      const res = await fetch('/api/send-otp', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ phone }),
       });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Failed to resend OTP');
+      const data = await parseResponse(res);
       
       setOtp('');
       setResendCooldown(30);
-      setInfoMessage('A new verification code has been dispatched to WhatsApp.');
+      setInfoMessage(data.message || 'A new verification code has been dispatched.');
     } catch (err: any) {
       setError(err.message);
     } finally {
@@ -82,13 +97,12 @@ export default function App() {
     setLoading(true);
 
     try {
-      const res = await fetch('/.netlify/functions/verify-otp', {
+      const res = await fetch('/api/verify-otp', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ phone, otp }),
       });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Verification failed');
+      await parseResponse(res);
       setStep('SUCCESS');
     } catch (err: any) {
       setError(err.message);
