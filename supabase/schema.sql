@@ -25,15 +25,15 @@ create index if not exists idx_created_at
 alter table public.otp_verifications enable row level security;
 revoke all on public.otp_verifications from anon, authenticated;
 
--- 4. Enable the pg_net extension (required for making outbound HTTP calls from Postgres)
-create extension if not exists pg_net with schema extensions;
+-- 4. Enable the pg_net extension in schema 'net' (standard for Supabase)
+create extension if not exists pg_net with schema net;
 
--- 5. Create the Trigger Function for Supabase Webhook
+-- 5. Create the Trigger Function using net.http_post
 create or replace function public.send_whatsapp_otp_webhook()
 returns trigger
 language plpgsql
 security definer
-set search_path = public, extensions
+set search_path = public, net
 as $$
 declare
   req_id bigint;
@@ -49,12 +49,10 @@ begin
     )
   );
 
-  -- Dispatch asynchronous HTTP POST to your Vercel API ingress route
-  select extensions.http_post(
+  -- Dispatch asynchronous HTTP POST to your Vercel API ingress route using net.http_post
+  select net.http_post(
     url := 'https://otp-chat-kappa.vercel.app/api/ingress/supabase-otp-hook/cards-crafted-auth/send-sms',
-    headers := jsonb_build_object(
-      'Content-Type', 'application/json'
-    ),
+    headers := jsonb_build_object('Content-Type', 'application/json'),
     body := payload
   ) into req_id;
 
