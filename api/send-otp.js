@@ -50,17 +50,21 @@ export default async function handler(req, res) {
     return res.status(500).json({ error: `Supabase database error: ${dbError.message || 'Write failed'}` });
   }
 
-  // 4. Send message via Open-WA Gateway
+  // 4. Send message via Open-WA Docker Container
   if (process.env.OPEN_WA_SERVER_URL) {
     try {
+      // Format number to OpenWA WhatsApp ID format: e.g. 917020453710@c.us
       const cleanPhone = phone.replace(/[^0-9]/g, '');
       const chatId = `${cleanPhone}@c.us`;
 
-      const waRes = await fetch(`${process.env.OPEN_WA_SERVER_URL}/api/messages/send-text`, {
+      // Remove any trailing slash from base URL
+      const baseUrl = process.env.OPEN_WA_SERVER_URL.replace(/\/+$/, '');
+
+      const waRes = await fetch(`${baseUrl}/api/messages/send-text`, {
         method: 'POST',
         headers: { 
           'Content-Type': 'application/json',
-          ...(process.env.OPEN_WA_API_KEY && { 'X-API-Key': process.env.OPEN_WA_API_KEY })
+          ...(process.env.OPEN_WA_API_KEY ? { 'X-API-Key': process.env.OPEN_WA_API_KEY } : {})
         },
         body: JSON.stringify({
           chatId: chatId,
@@ -70,7 +74,7 @@ export default async function handler(req, res) {
 
       if (!waRes.ok) {
         const errorData = await waRes.json().catch(() => ({}));
-        throw new Error(errorData.error || errorData.message || 'Gateway rejected the request');
+        throw new Error(errorData.error || errorData.message || `Docker returned status ${waRes.status}`);
       }
 
       return res.status(200).json({ success: true, message: 'OTP sent successfully via WhatsApp' });
