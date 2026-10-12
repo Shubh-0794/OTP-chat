@@ -25,49 +25,58 @@ async function handler(req, res) {
   if (req.method !== "POST") {
     return res.status(405).json({ error: "Method Not Allowed" });
   }
-  const body = typeof req.body === "string" ? JSON.parse(req.body || "{}") : req.body || {};
-  const { phone } = body;
-  if (!phone) {
-    return res.status(400).json({ error: "Phone number required" });
-  }
-  const otp = Math.floor(1e5 + Math.random() * 9e5).toString();
-  const otpHash = crypto.createHash("sha256").update(otp).digest("hex");
-  const expiresAt = new Date(Date.now() + 5 * 60 * 1e3).toISOString();
-  await supabase.from("otp_verifications").update({ is_verified: true }).eq("phone_number", phone).eq("is_verified", false);
-  const { error: dbError } = await supabase.from("otp_verifications").insert({
-    phone_number: phone,
-    otp_hash: otpHash,
-    expires_at: expiresAt
-  });
-  if (dbError) {
-    console.error("Supabase write error:", dbError);
-    return res.status(500).json({ error: `Supabase database error: ${dbError.message || "Write failed"}` });
-  }
-  if (process.env.OPEN_WA_SERVER_URL) {
-    try {
-      const waRes = await fetch(`${process.env.OPEN_WA_SERVER_URL}/send-otp`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          phone,
-          message: `Your verification code is: *${otp}*. It expires in 5 minutes. Do not share this code.`
-        })
-      });
-      if (!waRes.ok) {
-        const errorData = await waRes.json().catch(() => ({}));
-        throw new Error(errorData.error || "Gateway rejected the request");
-      }
-      return res.status(200).json({ success: true, message: "OTP sent successfully via WhatsApp" });
-    } catch (err) {
-      console.error("WhatsApp delivery error:", err);
-      return res.status(502).json({ error: `WhatsApp delivery service unreachable: ${err.message}` });
+  try {
+    const body = typeof req.body === "string" ? JSON.parse(req.body || "{}") : req.body || {};
+    const { phone } = body;
+    if (!phone) {
+      return res.status(400).json({ error: "Phone number required" });
     }
-  } else {
-    console.log(`[OTP GENERATED] Code for ${phone}: ${otp}`);
-    return res.status(200).json({
-      success: true,
-      message: `OTP stored in Supabase! (Test code: ${otp} - set OPEN_WA_SERVER_URL for live WhatsApp)`
+    const otp = Math.floor(1e5 + Math.random() * 9e5).toString();
+    const otpHash = crypto.createHash("sha256").update(otp).digest("hex");
+    const expiresAt = new Date(Date.now() + 5 * 60 * 1e3).toISOString();
+    const { error: updateError } = await supabase.from("otp_verifications").update({ is_verified: true }).eq("phone_number", phone).eq("is_verified", false);
+    if (updateError) {
+      console.error("Supabase update error:", updateError);
+    }
+    const { error: dbError } = await supabase.from("otp_verifications").insert({
+      phone_number: phone,
+      otp_hash: otpHash,
+      expires_at: expiresAt
     });
+    if (dbError) {
+      console.error("Supabase write error details:", dbError);
+      const errorMsg = [dbError.message, dbError.details, dbError.hint].filter(Boolean).join(" - ");
+      return res.status(500).json({ error: `Supabase write error: ${errorMsg || JSON.stringify(dbError)}` });
+    }
+    if (process.env.OPEN_WA_SERVER_URL) {
+      try {
+        const waRes = await fetch(`${process.env.OPEN_WA_SERVER_URL}/send-otp`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            phone,
+            message: `Your verification code is: *${otp}*. It expires in 5 minutes. Do not share this code.`
+          })
+        });
+        if (!waRes.ok) {
+          const errorData = await waRes.json().catch(() => ({}));
+          throw new Error(errorData.error || "Gateway rejected the request");
+        }
+        return res.status(200).json({ success: true, message: "OTP sent successfully via WhatsApp" });
+      } catch (err) {
+        console.error("WhatsApp delivery error:", err);
+        return res.status(502).json({ error: `WhatsApp delivery service unreachable: ${err.message}` });
+      }
+    } else {
+      console.log(`[OTP GENERATED] Code for ${phone}: ${otp}`);
+      return res.status(200).json({
+        success: true,
+        message: `OTP stored in Supabase! (Test code: ${otp} - set OPEN_WA_SERVER_URL for live WhatsApp)`
+      });
+    }
+  } catch (err) {
+    console.error("Handler execution error:", err);
+    return res.status(500).json({ error: err.message || "Internal Server Error" });
   }
 }
 var supabaseUrl, supabaseKey, supabase;
@@ -96,28 +105,38 @@ async function handler2(req, res) {
   if (req.method !== "POST") {
     return res.status(405).json({ error: "Method Not Allowed" });
   }
-  const body = typeof req.body === "string" ? JSON.parse(req.body || "{}") : req.body || {};
-  const { phone, otp } = body;
-  if (!phone || !otp) {
-    return res.status(400).json({ error: "Phone and OTP are required" });
+  try {
+    const body = typeof req.body === "string" ? JSON.parse(req.body || "{}") : req.body || {};
+    const { phone, otp } = body;
+    if (!phone || !otp) {
+      return res.status(400).json({ error: "Phone and OTP are required" });
+    }
+    const submittedHash = crypto2.createHash("sha256").update(String(otp).trim()).digest("hex");
+    const { data: record, error } = await supabase2.from("otp_verifications").select("*").eq("phone_number", phone).eq("is_verified", false).order("created_at", { ascending: false }).limit(1).maybeSingle();
+    if (error) {
+      console.error("Supabase fetch error:", error);
+      const errorMsg = [error.message, error.details, error.hint].filter(Boolean).join(" - ");
+      return res.status(500).json({ error: `Supabase database error: ${errorMsg}` });
+    }
+    if (!record) {
+      return res.status(400).json({ error: "No active OTP request found." });
+    }
+    if (record.attempts >= 5) {
+      return res.status(429).json({ error: "Too many failed attempts. Please request a new OTP." });
+    }
+    if (new Date(record.expires_at) < /* @__PURE__ */ new Date()) {
+      return res.status(410).json({ error: "This OTP has expired." });
+    }
+    if (record.otp_hash !== submittedHash) {
+      await supabase2.from("otp_verifications").update({ attempts: record.attempts + 1 }).eq("id", record.id);
+      return res.status(401).json({ error: "Incorrect verification code." });
+    }
+    await supabase2.from("otp_verifications").update({ is_verified: true }).eq("id", record.id);
+    return res.status(200).json({ success: true, message: "OTP verified successfully!" });
+  } catch (err) {
+    console.error("Verify handler error:", err);
+    return res.status(500).json({ error: err.message || "Internal Server Error" });
   }
-  const submittedHash = crypto2.createHash("sha256").update(String(otp).trim()).digest("hex");
-  const { data: record, error } = await supabase2.from("otp_verifications").select("*").eq("phone_number", phone).eq("is_verified", false).order("created_at", { ascending: false }).limit(1).maybeSingle();
-  if (error || !record) {
-    return res.status(400).json({ error: "No active OTP request found." });
-  }
-  if (record.attempts >= 5) {
-    return res.status(429).json({ error: "Too many failed attempts. Please request a new OTP." });
-  }
-  if (new Date(record.expires_at) < /* @__PURE__ */ new Date()) {
-    return res.status(410).json({ error: "This OTP has expired." });
-  }
-  if (record.otp_hash !== submittedHash) {
-    await supabase2.from("otp_verifications").update({ attempts: record.attempts + 1 }).eq("id", record.id);
-    return res.status(401).json({ error: "Incorrect verification code." });
-  }
-  await supabase2.from("otp_verifications").update({ is_verified: true }).eq("id", record.id);
-  return res.status(200).json({ success: true, message: "OTP verified successfully!" });
 }
 var supabaseUrl2, supabaseKey2, supabase2;
 var init_verify_otp = __esm({

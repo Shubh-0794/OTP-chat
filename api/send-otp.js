@@ -53,18 +53,24 @@ export default async function handler(req, res) {
   // 4. Send message via Open-WA Gateway
   if (process.env.OPEN_WA_SERVER_URL) {
     try {
-      const waRes = await fetch(`${process.env.OPEN_WA_SERVER_URL}/send-otp`, {
+      const cleanPhone = phone.replace(/[^0-9]/g, '');
+      const chatId = `${cleanPhone}@c.us`;
+
+      const waRes = await fetch(`${process.env.OPEN_WA_SERVER_URL}/api/messages/send-text`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          ...(process.env.OPEN_WA_API_KEY && { 'X-API-Key': process.env.OPEN_WA_API_KEY })
+        },
         body: JSON.stringify({
-          phone,
-          message: `Your verification code is: *${otp}*. It expires in 5 minutes. Do not share this code.`
+          chatId: chatId,
+          text: `Your verification code is: *${otp}*. It expires in 5 minutes. Do not share this code.`
         })
       });
 
       if (!waRes.ok) {
         const errorData = await waRes.json().catch(() => ({}));
-        throw new Error(errorData.error || 'Gateway rejected the request');
+        throw new Error(errorData.error || errorData.message || 'Gateway rejected the request');
       }
 
       return res.status(200).json({ success: true, message: 'OTP sent successfully via WhatsApp' });

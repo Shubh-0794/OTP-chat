@@ -20,53 +20,64 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: 'Method Not Allowed' });
   }
 
-  const body = typeof req.body === 'string' ? JSON.parse(req.body || '{}') : (req.body || {});
-  const { phone, otp } = body;
-  if (!phone || !otp) {
-    return res.status(400).json({ error: 'Phone and OTP are required' });
-  }
+  try {
+    const body = typeof req.body === 'string' ? JSON.parse(req.body || '{}') : (req.body || {});
+    const { phone, otp } = body;
+    if (!phone || !otp) {
+      return res.status(400).json({ error: 'Phone and OTP are required' });
+    }
 
-  const submittedHash = crypto.createHash('sha256').update(String(otp).trim()).digest('hex');
+    const submittedHash = crypto.createHash('sha256').update(String(otp).trim()).digest('hex');
 
-  // Fetch most recent active verification record
-  const { data: record, error } = await supabase
-    .from('otp_verifications')
-    .select('*')
-    .eq('phone_number', phone)
-    .eq('is_verified', false)
-    .order('created_at', { ascending: false })
-    .limit(1)
-    .maybeSingle();
+    // Fetch most recent active verification record
+    const { data: record, error } = await supabase
+      .from('otp_verifications')
+      .select('*')
+      .eq('phone_number', phone)
+      .eq('is_verified', false)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
 
-  if (error || !record) {
-    return res.status(400).json({ error: 'No active OTP request found.' });
-  }
+    if (error) {
+      console.error('Supabase fetch error:', error);
+      const errorMsg = [error.message, error.details, error.hint].filter(Boolean).join(' - ');
+      return res.status(500).json({ error: `Supabase database error: ${errorMsg}` });
+    }
 
-  // Rate limit: Max 5 failed attempts
-  if (record.attempts >= 5) {
-    return res.status(429).json({ error: 'Too many failed attempts. Please request a new OTP.' });
-  }
+    if (!record) {
+      return res.status(400).json({ error: 'No active OTP request found.' });
+    }
 
-  // Check expiration
-  if (new Date(record.expires_at) < new Date()) {
-    return res.status(410).json({ error: 'This OTP has expired.' });
-  }
+    // Rate limit: Max 5 failed attempts
+    if (record.attempts >= 5) {
+      return res.status(429).json({ error: 'Too many failed attempts. Please request a new OTP.' });
+    }
 
-  // Verify hash
-  if (record.otp_hash !== submittedHash) {
+    // Check expiration
+    if (new Date(record.expires_at) < new Date()) {
+      return res.status(410).json({ error: 'This OTP has expired.' });
+    }
+
+    // Verify hash
+    if (record.otp_hash !== submittedHash) {
+      await supabase
+        .from('otp_verifications')
+        .update({ attempts: record.attempts + 1 })
+        .eq('id', record.id);
+
+      return res.status(401).json({ error: 'Incorrect verification code.' });
+    }
+
+    // Mark as verified
     await supabase
       .from('otp_verifications')
-      .update({ attempts: record.attempts + 1 })
+      .update({ is_verified: true })
       .eq('id', record.id);
 
-    return res.status(401).json({ error: 'Incorrect verification code.' });
+    return res.status(200).json({ success: true, message: 'OTP verified successfully!' });
+  } catch (err) {
+    console.error('Verify handler error:', err);
+    return res.status(500).json({ error: err.message || 'Internal Server Error' });
   }
-
-  // Mark as verified
-  await supabase
-    .from('otp_verifications')
-    .update({ is_verified: true })
-    .eq('id', record.id);
-
-  return res.status(200).json({ success: true, message: 'OTP verified successfully!' });
 }
