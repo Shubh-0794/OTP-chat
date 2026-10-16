@@ -1,83 +1,21 @@
-import { createClient } from '@supabase/supabase-js';
-import crypto from 'crypto';
-
-const supabaseUrl = process.env.SUPABASE_URL || 'https://placeholder.supabase.co';
-const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SECRET_KEY || process.env.SUPABASE_PUBLISHABLE_KEY || 'placeholder';
-
-const supabase = createClient(supabaseUrl, supabaseKey);
-
 export default async function handler(req, res) {
-  // CORS support
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+  if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
-  if (req.method === 'OPTIONS') {
-    return res.status(200).end();
-  }
+  let { phone, otp, token } = req.body || {};
+  const code = otp || token;
+  if (!phone || !code) return res.status(400).json({ error: 'Phone and OTP required' });
+  phone = String(phone).replace(/\s/g, '');
+  if (!phone.startsWith('+')) phone = `+${phone}`;
 
-  if (req.method !== 'POST') {
-    return res.status(405).json({ error: 'Method Not Allowed' });
-  }
+  const r = await fetch(`${process.env.SUPABASE_URL}/auth/v1/verify`, {
+    method: 'POST',
+    headers: {
+      apikey: process.env.SUPABASE_ANON_KEY,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ type: 'sms', phone, token: code }),
+  });
 
-  try {
-    const body = typeof req.body === 'string' ? JSON.parse(req.body || '{}') : (req.body || {});
-    const { phone, otp } = body;
-    if (!phone || !otp) {
-      return res.status(400).json({ error: 'Phone and OTP are required' });
-    }
-
-    const submittedHash = crypto.createHash('sha256').update(String(otp).trim()).digest('hex');
-
-    // Fetch most recent active verification record
-    const { data: record, error } = await supabase
-      .from('otp_verifications')
-      .select('*')
-      .eq('phone_number', phone)
-      .eq('is_verified', false)
-      .order('created_at', { ascending: false })
-      .limit(1)
-      .maybeSingle();
-
-    if (error) {
-      console.error('Supabase fetch error:', error);
-      const errorMsg = [error.message, error.details, error.hint].filter(Boolean).join(' - ');
-      return res.status(500).json({ error: `Supabase database error: ${errorMsg}` });
-    }
-
-    if (!record) {
-      return res.status(400).json({ error: 'No active OTP request found.' });
-    }
-
-    // Rate limit: Max 5 failed attempts
-    if (record.attempts >= 5) {
-      return res.status(429).json({ error: 'Too many failed attempts. Please request a new OTP.' });
-    }
-
-    // Check expiration
-    if (new Date(record.expires_at) < new Date()) {
-      return res.status(410).json({ error: 'This OTP has expired.' });
-    }
-
-    // Verify hash
-    if (record.otp_hash !== submittedHash) {
-      await supabase
-        .from('otp_verifications')
-        .update({ attempts: record.attempts + 1 })
-        .eq('id', record.id);
-
-      return res.status(401).json({ error: 'Incorrect verification code.' });
-    }
-
-    // Mark as verified
-    await supabase
-      .from('otp_verifications')
-      .update({ is_verified: true })
-      .eq('id', record.id);
-
-    return res.status(200).json({ success: true, message: 'OTP verified successfully!' });
-  } catch (err) {
-    console.error('Verify handler error:', err);
-    return res.status(500).json({ error: err.message || 'Internal Server Error' });
-  }
+  if (!r.ok) return res.status(400).json({ success: false, error: 'Incorrect OTP' });
+  return res.status(200).json({ success: true, verified: true });
 }
