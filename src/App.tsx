@@ -6,6 +6,7 @@
 import React, { useState, useEffect } from 'react';
 import { Phone, KeyRound, CheckCircle2, AlertCircle, RotateCcw, Check } from 'lucide-react';
 import confetti from 'canvas-confetti';
+import { motion } from 'motion/react';
 
 export default function App() {
   const [phone, setPhone] = useState('');
@@ -16,6 +17,7 @@ export default function App() {
   const [resendCooldown, setResendCooldown] = useState(30);
   const [error, setError] = useState('');
   const [infoMessage, setInfoMessage] = useState('');
+  const [shakeKey, setShakeKey] = useState(0);
 
   // Countdown timer for Resend OTP button
   useEffect(() => {
@@ -114,6 +116,7 @@ export default function App() {
       });
     } catch (err: any) {
       setError(err.message);
+      setShakeKey((prev) => prev + 1);
     } finally {
       setLoading(false);
     }
@@ -195,7 +198,12 @@ export default function App() {
               <label className="block text-sm font-medium text-slate-700 mb-2 text-center">
                 Enter 6-digit Code
               </label>
-              <div className="flex justify-center gap-2 sm:gap-3">
+              <motion.div
+                key={shakeKey}
+                animate={{ x: [0, -10, 10, -10, 10, 0] }}
+                transition={{ duration: 0.4 }}
+                className="flex justify-center gap-2 sm:gap-3"
+              >
                 {[0, 1, 2, 3, 4, 5].map((index) => {
                   const digit = otp[index] || '';
                   const isFilled = digit !== '';
@@ -252,7 +260,7 @@ export default function App() {
                     />
                   );
                 })}
-              </div>
+              </motion.div>
             </div>
 
             <button
