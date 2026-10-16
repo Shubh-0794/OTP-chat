@@ -184,21 +184,56 @@ export default function App() {
             </div>
             
             <div>
-              <label htmlFor="otp" className="block text-sm font-medium text-slate-700 mb-1.5">
+              <label className="block text-sm font-medium text-slate-700 mb-2 text-center">
                 Enter 6-digit Code
               </label>
-              <div className="relative">
-                <KeyRound className="absolute inset-y-0 left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
-                <input
-                  type="text"
-                  id="otp"
-                  maxLength={6}
-                  placeholder="123456"
-                  value={otp}
-                  onChange={(e) => setOtp(e.target.value.replace(/[^0-9]/g, ''))}
-                  className="w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-300 text-slate-900 text-center tracking-[0.5em] text-xl font-semibold rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none transition-colors"
-                  required
-                />
+              <div className="flex justify-center gap-2 sm:gap-3">
+                {[0, 1, 2, 3, 4, 5].map((index) => {
+                  const digit = otp[index] || '';
+                  const isFilled = digit !== '';
+                  return (
+                    <div
+                      key={index}
+                      className={`relative w-11 h-12 sm:w-12 sm:h-14 rounded-xl border-2 flex items-center justify-center text-xl sm:text-2xl font-bold transition-all duration-300 ${
+                        isFilled
+                          ? 'border-emerald-500 bg-emerald-50 text-emerald-700 shadow-md scale-105 animate-[bounce_0.3s_ease-in-out]'
+                          : 'border-slate-200 bg-slate-50 text-slate-800 focus-within:border-emerald-500 focus-within:ring-2 focus-within:ring-emerald-200'
+                      }`}
+                    >
+                      <span className={isFilled ? 'animate-[fadeIn_0.2s_ease-out]' : 'opacity-0'}>
+                        {digit}
+                      </span>
+                      <input
+                        type="text"
+                        inputMode="numeric"
+                        maxLength={1}
+                        value={digit}
+                        onChange={(e) => {
+                          const val = e.target.value.replace(/[^0-9]/g, '');
+                          const otpArr = otp.split('');
+                          otpArr[index] = val;
+                          const newOtp = otpArr.join('').slice(0, 6);
+                          setOtp(newOtp);
+
+                          // Auto focus next input
+                          if (val && index < 5) {
+                            const nextInput = document.getElementById(`otp-input-${index + 1}`);
+                            nextInput?.focus();
+                          }
+                        }}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Backspace' && !digit && index > 0) {
+                            const prevInput = document.getElementById(`otp-input-${index - 1}`);
+                            prevInput?.focus();
+                          }
+                        }}
+                        id={`otp-input-${index}`}
+                        className="absolute inset-0 w-full h-full opacity-0 cursor-pointer text-center"
+                        autoFocus={index === 0}
+                      />
+                    </div>
+                  );
+                })}
               </div>
             </div>
 
