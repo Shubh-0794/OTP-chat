@@ -123,35 +123,62 @@ export default function App() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
-      <div className="w-full max-w-md bg-white rounded-xl shadow-sm border border-slate-200 p-8">
-        <h2 className="text-2xl font-semibold text-slate-800 mb-6 flex items-center gap-2">
-          <Phone className="w-6 h-6 text-emerald-500" />
-          WhatsApp Verification
-        </h2>
+    <div className="min-h-screen bg-[#0d0a08] flex items-center justify-center p-4 relative overflow-hidden font-sans">
+      {/* Ambient background golden/amber glows */}
+      <div className="absolute -top-32 -left-32 w-96 h-96 bg-amber-600/20 rounded-full blur-[128px] pointer-events-none" />
+      <div className="absolute -bottom-32 -right-32 w-96 h-96 bg-yellow-500/10 rounded-full blur-[128px] pointer-events-none" />
+
+      {/* Glassy Container */}
+      <div className="relative w-full max-w-md bg-gradient-to-b from-white/[0.08] to-white/[0.02] backdrop-blur-2xl rounded-3xl border border-white/10 shadow-[0_20px_50px_rgba(0,0,0,0.5)] p-8 text-white">
+        
+        {/* Top corner glowing glass frame accents */}
+        <div className="absolute top-0 left-6 w-8 h-[2px] bg-gradient-to-r from-transparent via-amber-400/50 to-transparent" />
+        <div className="absolute bottom-0 right-6 w-8 h-[2px] bg-gradient-to-r from-transparent via-amber-400/50 to-transparent" />
+
+        <div className="text-center mb-8">
+          <div className="w-12 h-12 mx-auto mb-4 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center shadow-inner">
+            <KeyRound className="w-6 h-6 text-amber-400 animate-pulse" />
+          </div>
+          <h2 className="text-2xl font-bold tracking-tight text-white mb-2 flex items-center justify-center gap-2">
+            Verify <span className="text-amber-400">OTP</span>
+          </h2>
+          <p className="text-sm text-neutral-400">
+            {step === 'SEND' 
+              ? 'Enter your WhatsApp phone number to receive a secure code'
+              : 'Enter the 6-digit security code sent to your device'}
+          </p>
+        </div>
 
         {error && (
-          <div className="mb-6 p-4 bg-red-50 text-red-700 rounded-lg flex items-start gap-3 text-sm">
-            <AlertCircle className="w-5 h-5 shrink-0 mt-0.5" />
+          <motion.div 
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="mb-6 p-4 bg-red-500/10 border border-red-500/20 text-red-300 rounded-2xl flex items-start gap-3 text-sm backdrop-blur-md"
+          >
+            <AlertCircle className="w-5 h-5 shrink-0 mt-0.5 text-red-400" />
             <p>{error}</p>
-          </div>
+          </motion.div>
         )}
 
         {infoMessage && (
-          <div className="mb-6 p-4 bg-emerald-50 text-emerald-800 border border-emerald-200 rounded-lg flex items-start gap-3 text-sm">
-            <Check className="w-5 h-5 shrink-0 mt-0.5 text-emerald-600" />
+          <motion.div 
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="mb-6 p-4 bg-amber-500/10 border border-amber-500/20 text-amber-200 rounded-2xl flex items-start gap-3 text-sm backdrop-blur-md"
+          >
+            <Check className="w-5 h-5 shrink-0 mt-0.5 text-amber-400" />
             <p>{infoMessage}</p>
-          </div>
+          </motion.div>
         )}
 
         {step === 'SEND' && (
-          <form onSubmit={handleSendOtp} className="space-y-4">
+          <form onSubmit={handleSendOtp} className="space-y-5">
             <div>
-              <label htmlFor="phone" className="block text-sm font-medium text-slate-700 mb-1.5">
+              <label htmlFor="phone" className="block text-sm font-medium text-neutral-300 mb-2">
                 Phone Number (with country code)
               </label>
               <div className="relative">
-                <span className="absolute inset-y-0 left-0 pl-3 flex items-center text-slate-400">
+                <span className="absolute inset-y-0 left-0 pl-3.5 flex items-center text-neutral-400">
                   +
                 </span>
                 <input
@@ -160,7 +187,7 @@ export default function App() {
                   placeholder="919876543210"
                   value={phone}
                   onChange={(e) => setPhone(e.target.value.replace(/[^0-9]/g, ''))}
-                  className="w-full pl-8 pr-4 py-2.5 bg-slate-50 border border-slate-300 text-slate-900 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none transition-colors"
+                  className="w-full pl-9 pr-4 py-3 bg-white/[0.04] border border-white/10 text-white placeholder-neutral-500 rounded-2xl focus:ring-2 focus:ring-amber-400/50 focus:border-amber-400 outline-none transition-all shadow-inner"
                   required
                 />
               </div>
@@ -168,18 +195,25 @@ export default function App() {
             <button
               type="submit"
               disabled={loading || !phone}
-              className="w-full bg-emerald-500 hover:bg-emerald-600 text-white font-medium py-2.5 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
+              className="w-full bg-gradient-to-r from-amber-500 to-yellow-500 hover:from-amber-600 hover:to-yellow-600 text-neutral-950 font-semibold py-3.5 rounded-2xl transition-all shadow-[0_10px_20px_rgba(245,158,11,0.2)] disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
             >
-              {loading ? 'Sending...' : 'Send WhatsApp OTP'}
+              {loading ? (
+                <span className="inline-flex items-center gap-2">
+                  <span className="w-4 h-4 border-2 border-neutral-950 border-t-transparent rounded-full animate-spin" />
+                  Sending Code...
+                </span>
+              ) : (
+                'Verify & Proceed'
+              )}
             </button>
           </form>
         )}
 
         {step === 'VERIFY' && (
-          <form onSubmit={handleVerifyOtp} className="space-y-5">
-            <div className="text-sm text-slate-600 bg-slate-50 p-3 rounded-lg flex items-center justify-between">
+          <form onSubmit={handleVerifyOtp} className="space-y-6">
+            <div className="text-sm text-neutral-300 bg-white/[0.03] border border-white/10 p-3.5 rounded-2xl flex items-center justify-between backdrop-blur-sm">
               <div>
-                Code sent to <strong className="text-slate-900">+{phone}</strong>
+                Code sent to <strong className="text-amber-400">+{phone}</strong>
               </div>
               <button
                 type="button"
@@ -188,14 +222,14 @@ export default function App() {
                   setError('');
                   setInfoMessage('');
                 }}
-                className="text-emerald-600 hover:text-emerald-700 font-medium text-xs underline"
+                className="text-amber-400 hover:text-amber-300 font-medium text-xs underline"
               >
-                Change number
+                Change
               </button>
             </div>
             
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-2 text-center">
+              <label className="block text-sm font-medium text-neutral-300 mb-3 text-center">
                 Enter 6-digit Code
               </label>
               <motion.div
@@ -217,7 +251,6 @@ export default function App() {
                       onChange={(e) => {
                         const val = e.target.value.replace(/[^0-9]/g, '');
                         const otpArr = otp.split('');
-                        // If user pastes multiple digits
                         if (val.length > 1) {
                           const pasted = val.split('');
                           for (let i = 0; i < pasted.length && index + i < 6; i++) {
@@ -232,7 +265,6 @@ export default function App() {
                         otpArr[index] = val;
                         setOtp(otpArr.join('').slice(0, 6));
 
-                        // Auto focus next input
                         if (val && index < 5) {
                           document.getElementById(`otp-input-${index + 1}`)?.focus();
                         }
@@ -252,10 +284,10 @@ export default function App() {
                       }}
                       id={`otp-input-${index}`}
                       autoFocus={index === 0}
-                      className={`w-11 h-12 sm:w-12 sm:h-14 rounded-xl border-2 text-center text-xl sm:text-2xl font-bold transition-all duration-300 outline-none ${
+                      className={`w-11 h-12 sm:w-12 sm:h-14 rounded-2xl border text-center text-xl sm:text-2xl font-bold transition-all duration-300 outline-none ${
                         isFilled
-                          ? 'border-emerald-500 bg-emerald-50 text-emerald-700 shadow-md scale-105'
-                          : 'border-slate-200 bg-slate-50 text-slate-800 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200'
+                          ? 'border-amber-400 bg-amber-500/10 text-amber-300 shadow-[0_0_15px_rgba(245,158,11,0.2)] scale-105'
+                          : 'border-white/10 bg-white/[0.04] text-white focus:border-amber-400 focus:bg-white/[0.08]'
                       }`}
                     />
                   );
@@ -266,25 +298,32 @@ export default function App() {
             <button
               type="submit"
               disabled={loading || resending || otp.length !== 6}
-              className="w-full bg-sky-600 hover:bg-sky-700 text-white font-medium py-2.5 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center shadow-sm"
+              className="w-full bg-gradient-to-r from-amber-500 to-yellow-500 hover:from-amber-600 hover:to-yellow-600 text-neutral-950 font-semibold py-3.5 rounded-2xl transition-all shadow-[0_10px_20px_rgba(245,158,11,0.2)] disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
             >
-              {loading ? 'Verifying...' : 'Verify Code'}
+              {loading ? (
+                <span className="inline-flex items-center gap-2">
+                  <span className="w-4 h-4 border-2 border-neutral-950 border-t-transparent rounded-full animate-spin" />
+                  Verifying Code...
+                </span>
+              ) : (
+                'Verify & Secured'
+              )}
             </button>
 
             {/* Resend OTP Section */}
-            <div className="pt-2 border-t border-slate-100 flex flex-col items-center gap-1.5 text-center">
-              <span className="text-xs text-slate-500">Didn't receive the code?</span>
+            <div className="pt-2 border-t border-white/10 flex flex-col items-center gap-1.5 text-center">
+              <span className="text-xs text-neutral-400">Didn't receive the code?</span>
               <button
                 type="button"
                 onClick={handleResendOtp}
                 disabled={resending || loading || resendCooldown > 0}
-                className="inline-flex items-center gap-1.5 text-sm font-medium text-emerald-600 hover:text-emerald-700 disabled:text-slate-400 disabled:cursor-not-allowed transition-colors"
+                className="inline-flex items-center gap-1.5 text-sm font-medium text-amber-400 hover:text-amber-300 disabled:text-neutral-600 disabled:cursor-not-allowed transition-colors"
               >
                 <RotateCcw className={`w-3.5 h-3.5 ${resending ? 'animate-spin' : ''}`} />
                 {resending
-                  ? 'Resending OTP...'
+                  ? 'Resending...'
                   : resendCooldown > 0
-                  ? `Resend OTP in ${resendCooldown}s`
+                  ? `Resend in ${resendCooldown}s`
                   : 'Resend OTP'}
               </button>
             </div>
@@ -292,11 +331,17 @@ export default function App() {
         )}
 
         {step === 'SUCCESS' && (
-          <div className="text-center py-6">
-            <CheckCircle2 className="w-16 h-16 text-emerald-500 mx-auto mb-4" />
-            <h3 className="text-xl font-semibold text-slate-800 mb-2">Verification Successful!</h3>
-            <p className="text-slate-600">
-              Your WhatsApp number (+{phone}) has been confirmed.
+          <motion.div 
+            initial={{ scale: 0.9, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            className="text-center py-6"
+          >
+            <div className="w-16 h-16 mx-auto mb-4 rounded-3xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-center">
+              <CheckCircle2 className="w-10 h-10 text-amber-400" />
+            </div>
+            <h3 className="text-xl font-bold text-white mb-2">Verified Successfully</h3>
+            <p className="text-sm text-neutral-400 mb-6">
+              Your security verification code has been confirmed.
             </p>
             <button
               onClick={() => {
@@ -306,11 +351,11 @@ export default function App() {
                 setError('');
                 setInfoMessage('');
               }}
-              className="mt-6 text-sm text-slate-500 hover:text-slate-700 font-medium"
+              className="text-xs font-medium text-amber-400 hover:text-amber-300 underline"
             >
               Verify another number
             </button>
-          </div>
+          </motion.div>
         )}
       </div>
     </div>
