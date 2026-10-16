@@ -192,46 +192,56 @@ export default function App() {
                   const digit = otp[index] || '';
                   const isFilled = digit !== '';
                   return (
-                    <div
+                    <input
                       key={index}
-                      className={`relative w-11 h-12 sm:w-12 sm:h-14 rounded-xl border-2 flex items-center justify-center text-xl sm:text-2xl font-bold transition-all duration-300 ${
-                        isFilled
-                          ? 'border-emerald-500 bg-emerald-50 text-emerald-700 shadow-md scale-105 animate-[bounce_0.3s_ease-in-out]'
-                          : 'border-slate-200 bg-slate-50 text-slate-800 focus-within:border-emerald-500 focus-within:ring-2 focus-within:ring-emerald-200'
-                      }`}
-                    >
-                      <span className={isFilled ? 'animate-[fadeIn_0.2s_ease-out]' : 'opacity-0'}>
-                        {digit}
-                      </span>
-                      <input
-                        type="text"
-                        inputMode="numeric"
-                        maxLength={1}
-                        value={digit}
-                        onChange={(e) => {
-                          const val = e.target.value.replace(/[^0-9]/g, '');
-                          const otpArr = otp.split('');
-                          otpArr[index] = val;
-                          const newOtp = otpArr.join('').slice(0, 6);
-                          setOtp(newOtp);
+                      type="text"
+                      inputMode="numeric"
+                      maxLength={1}
+                      value={digit}
+                      onChange={(e) => {
+                        const val = e.target.value.replace(/[^0-9]/g, '');
+                        const otpArr = otp.split('');
+                        // If user pastes multiple digits
+                        if (val.length > 1) {
+                          const pasted = val.split('');
+                          for (let i = 0; i < pasted.length && index + i < 6; i++) {
+                            otpArr[index + i] = pasted[i];
+                          }
+                          setOtp(otpArr.join('').slice(0, 6));
+                          const targetIndex = Math.min(index + pasted.length, 5);
+                          document.getElementById(`otp-input-${targetIndex}`)?.focus();
+                          return;
+                        }
 
-                          // Auto focus next input
-                          if (val && index < 5) {
-                            const nextInput = document.getElementById(`otp-input-${index + 1}`);
-                            nextInput?.focus();
+                        otpArr[index] = val;
+                        setOtp(otpArr.join('').slice(0, 6));
+
+                        // Auto focus next input
+                        if (val && index < 5) {
+                          document.getElementById(`otp-input-${index + 1}`)?.focus();
+                        }
+                      }}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Backspace') {
+                          e.preventDefault();
+                          const otpArr = otp.split('');
+                          if (digit) {
+                            otpArr[index] = '';
+                          } else if (index > 0) {
+                            otpArr[index - 1] = '';
+                            document.getElementById(`otp-input-${index - 1}`)?.focus();
                           }
-                        }}
-                        onKeyDown={(e) => {
-                          if (e.key === 'Backspace' && !digit && index > 0) {
-                            const prevInput = document.getElementById(`otp-input-${index - 1}`);
-                            prevInput?.focus();
-                          }
-                        }}
-                        id={`otp-input-${index}`}
-                        className="absolute inset-0 w-full h-full opacity-0 cursor-pointer text-center"
-                        autoFocus={index === 0}
-                      />
-                    </div>
+                          setOtp(otpArr.join('').slice(0, 6));
+                        }
+                      }}
+                      id={`otp-input-${index}`}
+                      autoFocus={index === 0}
+                      className={`w-11 h-12 sm:w-12 sm:h-14 rounded-xl border-2 text-center text-xl sm:text-2xl font-bold transition-all duration-300 outline-none ${
+                        isFilled
+                          ? 'border-emerald-500 bg-emerald-50 text-emerald-700 shadow-md scale-105'
+                          : 'border-slate-200 bg-slate-50 text-slate-800 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200'
+                      }`}
+                    />
                   );
                 })}
               </div>
