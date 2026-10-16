@@ -5,6 +5,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { Phone, KeyRound, CheckCircle2, AlertCircle, RotateCcw, Check } from 'lucide-react';
+import confetti from 'canvas-confetti';
 
 export default function App() {
   const [phone, setPhone] = useState('');
@@ -104,6 +105,13 @@ export default function App() {
       });
       await parseResponse(res);
       setStep('SUCCESS');
+      
+      // Trigger canvas-confetti celebration
+      confetti({
+        particleCount: 120,
+        spread: 80,
+        origin: { y: 0.6 }
+      });
     } catch (err: any) {
       setError(err.message);
     } finally {
